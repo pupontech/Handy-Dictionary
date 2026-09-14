@@ -73,7 +73,10 @@ jobs:
       platform: ${{ matrix.platform }}
       target: ${{ matrix.target }}
       build-args: ${{ matrix.args }}
-      sign-binaries: true
+      # Fork: upstream signs releases with Apple Developer ID + Azure Trusted
+      # Signing credentials that this fork does not have. Updater artifacts are
+      # still signed via the fork's TAURI_SIGNING_PRIVATE_KEY (see build.yml).
+      sign-binaries: false
       asset-prefix: "handy"
       upload-artifacts: false
       release-id: ${{ needs.create-release.outputs.release-id }}

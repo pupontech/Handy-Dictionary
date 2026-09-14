@@ -6,6 +6,68 @@
 
 Handy is a cross-platform desktop application that provides simple, privacy-focused speech transcription. Press a shortcut, speak, and have your words appear in any text field. This happens on your own computer without sending any information to the cloud.
 
+## About this fork
+
+This is a fork of [Handy](https://github.com/cjpais/Handy) by CJ Pais, kept as
+close to upstream as possible, that adds a first-class **Dictionary**:
+
+- Dedicated **Dictionary** settings page
+- Improved custom-word management with search and counts
+- Import / export (JSON full dictionary, TXT custom words, CSV replacements)
+- Deterministic **replacement rules** applied to the final transcript
+
+Everything else is upstream Handy, unchanged.
+
+**Upstream:** [github.com/cjpais/Handy](https://github.com/cjpais/Handy)
+
+### Dictionary
+
+Custom Words make Handy recognize names, brands and specialized terms (reusing
+Handy's existing fuzzy custom-word matcher). Replacement Rules rewrite the final
+transcript deterministically:
+
+| Heard / transcribed | Replace with     |
+| ------------------- | ---------------- |
+| `open router`       | `OpenRouter`     |
+| `think pad`         | `ThinkPad`       |
+| `n eight n`         | `n8n`            |
+| `dark room edits`   | `Darkroom Edits` |
+| `pup on tech`       | `PuponTech`      |
+
+Matching is case-insensitive, respects word boundaries (`cat` → `CAT` never
+touches `concatenate`), prefers the longest matching rule, preserves surrounding
+punctuation, and never cascades. Dictionary data stays local; import/export only
+happens when you ask for it.
+
+### Fork releases, updates and signing
+
+- Bundle identifier: `com.pupontech.handy.dictionary` (upstream uses
+  `com.pais.handy`), so this fork installs side by side with upstream Handy and
+  keeps its own settings, history and models. To reuse an existing upstream
+  Handy setup, copy its data/config directory to the fork's matching directory
+  (same paths, identifier `com.pupontech.handy.dictionary` instead of
+  `com.pais.handy`).
+- The in-app updater checks **this fork's** releases only:
+  `https://github.com/pupontech/Handy-Dictionary/releases/latest/download/latest.json`.
+  Update artifacts are signed with a fork-specific Tauri updater key; the
+  private key lives in this repository's GitHub Actions secrets and is never
+  committed.
+- Windows/macOS platform signing (upstream's Azure Trusted Signing and Apple
+  Developer ID) is **not** configured here: fork builds are unsigned unless the
+  fork owner adds their own certificates and signing secrets.
+
+### Syncing with upstream
+
+```bash
+git remote add upstream https://github.com/cjpais/Handy.git   # once
+git fetch upstream
+git checkout main
+git merge upstream/main
+```
+
+Fork-specific code is kept isolated (new `dictionary/` modules plus a small
+number of touch points) so these merges stay simple.
+
 ## Why Handy?
 
 Handy was created to fill the gap for a truly open source, extensible speech-to-text tool. As stated on [handy.computer](https://handy.computer):
