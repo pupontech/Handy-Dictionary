@@ -797,9 +797,13 @@ jobs:
             src-tauri/target/${{ steps.build-profile.outputs.profile }}/bundle/deb/*.deb
             src-tauri/target/${{ steps.build-profile.outputs.profile }}/bundle/appimage/*.AppImage
             src-tauri/target/${{ steps.build-profile.outputs.profile }}/bundle/rpm/*.rpm
-            # Fork: signed updater artifacts (AppImage.tar.gz + minisign .sig).
-            src-tauri/target/${{ steps.build-profile.outputs.profile }}/bundle/appimage/*.AppImage.tar.gz
-            src-tauri/target/${{ steps.build-profile.outputs.profile }}/bundle/appimage/*.AppImage.tar.gz.sig
+            # Fork: the installer .sig files ARE the tauri v2 updater artifacts on
+            # Windows/Linux (self-contained updater: the signed installer is the
+            # payload; only macOS gets an .app.tar.gz). Upload them so a
+            # CI-produced signature can be verified against plugins.updater.pubkey.
+            src-tauri/target/${{ steps.build-profile.outputs.profile }}/bundle/appimage/*.AppImage.sig
+            src-tauri/target/${{ steps.build-profile.outputs.profile }}/bundle/deb/*.deb.sig
+            src-tauri/target/${{ steps.build-profile.outputs.profile }}/bundle/rpm/*.rpm.sig
           retention-days: 30
 
       # Run on Windows releases too; upload-artifacts only controls retention.
@@ -913,7 +917,10 @@ jobs:
           path: |
             src-tauri/target/${{ inputs.target != '' && inputs.target != 'x86_64-pc-windows-msvc' && format('{0}/{1}', inputs.target, steps.build-profile.outputs.profile) || steps.build-profile.outputs.profile }}/bundle/msi/*.msi
             src-tauri/target/${{ inputs.target != '' && inputs.target != 'x86_64-pc-windows-msvc' && format('{0}/{1}', inputs.target, steps.build-profile.outputs.profile) || steps.build-profile.outputs.profile }}/bundle/nsis/*.exe
-            # Fork: signed updater artifacts (nsis.zip + minisign .sig).
-            src-tauri/target/${{ inputs.target != '' && inputs.target != 'x86_64-pc-windows-msvc' && format('{0}/{1}', inputs.target, steps.build-profile.outputs.profile) || steps.build-profile.outputs.profile }}/bundle/nsis/*.nsis.zip
-            src-tauri/target/${{ inputs.target != '' && inputs.target != 'x86_64-pc-windows-msvc' && format('{0}/{1}', inputs.target, steps.build-profile.outputs.profile) || steps.build-profile.outputs.profile }}/bundle/nsis/*.nsis.zip.sig
+            # Fork: the installer .sig files ARE the tauri v2 updater artifacts on
+            # Windows (self-contained updater: the signed installer is the payload).
+            # Upload them so a CI-produced signature can be verified against
+            # plugins.updater.pubkey.
+            src-tauri/target/${{ inputs.target != '' && inputs.target != 'x86_64-pc-windows-msvc' && format('{0}/{1}', inputs.target, steps.build-profile.outputs.profile) || steps.build-profile.outputs.profile }}/bundle/nsis/*.exe.sig
+            src-tauri/target/${{ inputs.target != '' && inputs.target != 'x86_64-pc-windows-msvc' && format('{0}/{1}', inputs.target, steps.build-profile.outputs.profile) || steps.build-profile.outputs.profile }}/bundle/msi/*.msi.sig
           retention-days: 30
