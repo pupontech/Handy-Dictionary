@@ -612,6 +612,10 @@ jobs:
           path: |
             src-tauri/target/${{ inputs.target }}/${{ steps.build-profile.outputs.profile }}/bundle/dmg/*.dmg
             src-tauri/target/${{ inputs.target }}/${{ steps.build-profile.outputs.profile }}/bundle/macos/*.app
+            # Fork: signed updater artifacts (.app.tar.gz + minisign .sig) so
+            # CI-produced signatures are downloadable for key verification.
+            src-tauri/target/${{ inputs.target }}/${{ steps.build-profile.outputs.profile }}/bundle/macos/*.app.tar.gz
+            src-tauri/target/${{ inputs.target }}/${{ steps.build-profile.outputs.profile }}/bundle/macos/*.app.tar.gz.sig
           retention-days: 30
 
       - name: Audit Linux package runtime contents
@@ -793,6 +797,9 @@ jobs:
             src-tauri/target/${{ steps.build-profile.outputs.profile }}/bundle/deb/*.deb
             src-tauri/target/${{ steps.build-profile.outputs.profile }}/bundle/appimage/*.AppImage
             src-tauri/target/${{ steps.build-profile.outputs.profile }}/bundle/rpm/*.rpm
+            # Fork: signed updater artifacts (AppImage.tar.gz + minisign .sig).
+            src-tauri/target/${{ steps.build-profile.outputs.profile }}/bundle/appimage/*.AppImage.tar.gz
+            src-tauri/target/${{ steps.build-profile.outputs.profile }}/bundle/appimage/*.AppImage.tar.gz.sig
           retention-days: 30
 
       # Run on Windows releases too; upload-artifacts only controls retention.
@@ -906,4 +913,7 @@ jobs:
           path: |
             src-tauri/target/${{ inputs.target != '' && inputs.target != 'x86_64-pc-windows-msvc' && format('{0}/{1}', inputs.target, steps.build-profile.outputs.profile) || steps.build-profile.outputs.profile }}/bundle/msi/*.msi
             src-tauri/target/${{ inputs.target != '' && inputs.target != 'x86_64-pc-windows-msvc' && format('{0}/{1}', inputs.target, steps.build-profile.outputs.profile) || steps.build-profile.outputs.profile }}/bundle/nsis/*.exe
+            # Fork: signed updater artifacts (nsis.zip + minisign .sig).
+            src-tauri/target/${{ inputs.target != '' && inputs.target != 'x86_64-pc-windows-msvc' && format('{0}/{1}', inputs.target, steps.build-profile.outputs.profile) || steps.build-profile.outputs.profile }}/bundle/nsis/*.nsis.zip
+            src-tauri/target/${{ inputs.target != '' && inputs.target != 'x86_64-pc-windows-msvc' && format('{0}/{1}', inputs.target, steps.build-profile.outputs.profile) || steps.build-profile.outputs.profile }}/bundle/nsis/*.nsis.zip.sig
           retention-days: 30
