@@ -427,6 +427,33 @@ mod headless_guard_tests {
     }
 }
 
+#[cfg(test)]
+mod headless_output_tests {
+    use super::apply_headless_final_output;
+    use crate::audio_toolkit::dictionary::DictionaryReplacement;
+
+    #[test]
+    fn headless_final_output_applies_dictionary_replacements() {
+        let replacements = [DictionaryReplacement {
+            from: "open router".to_string(),
+            to: "OpenRouter".to_string(),
+        }];
+
+        assert_eq!(
+            apply_headless_final_output("I use open router".to_string(), &replacements),
+            "I use OpenRouter"
+        );
+    }
+}
+
+fn apply_headless_final_output(
+    text: String,
+    replacements: &[crate::audio_toolkit::dictionary::DictionaryReplacement],
+) -> String {
+    let transcription = text.clone();
+    crate::actions::apply_final_output_replacements(&transcription, text, None, replacements).0
+}
+
 /// Headless one-shot transcription for the `--transcribe-file` / `--list-devices`
 /// path. Drives the same `TranscriptionManager::transcribe` the app uses; no
 /// mic, no VAD, no download. Returns a process exit code (0 ok, 1 runtime
@@ -582,6 +609,8 @@ fn run_headless_transcription(app: &AppHandle, args: &CliArgs) -> i32 {
         times_ms.push(t.elapsed().as_millis() as u64);
     }
     let best_ms = times_ms.iter().copied().min().unwrap_or(0);
+    let settings = get_settings(app);
+    text = apply_headless_final_output(text, &settings.dictionary_replacements);
     let rtf = if best_ms > 0 {
         audio_secs / (best_ms as f64 / 1000.0)
     } else {

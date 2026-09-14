@@ -710,6 +710,24 @@ mod tests {
     }
 
     #[test]
+    fn tray_uses_replacement_only_output_saved_by_finalizer() {
+        let replacements = [crate::audio_toolkit::dictionary::DictionaryReplacement {
+            from: "open router".to_string(),
+            to: "OpenRouter".to_string(),
+        }];
+        let (final_text, post_processed_text) = crate::actions::apply_final_output_replacements(
+            "I use open router",
+            "I use open router".to_string(),
+            None,
+            &replacements,
+        );
+        let entry = build_entry("I use open router", post_processed_text.as_deref());
+
+        assert_eq!(final_text, "I use OpenRouter");
+        assert_eq!(last_transcript_text(&entry), "I use OpenRouter");
+    }
+
+    #[test]
     fn tray_icon_resolution_failure_is_returned_instead_of_panicking() {
         assert!(load_tray_icon(Err(tauri::Error::UnknownPath)).is_err());
     }
