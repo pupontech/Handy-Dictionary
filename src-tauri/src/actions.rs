@@ -1,7 +1,7 @@
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 use crate::apple_intelligence;
 use crate::audio_feedback::{play_feedback_sound, play_feedback_sound_blocking, SoundType};
-use crate::audio_toolkit::dictionary::apply_dictionary_replacements;
+use crate::audio_toolkit::dictionary::{apply_dictionary_replacements, DictionaryReplacement};
 use crate::audio_toolkit::{is_microphone_access_denied, is_no_input_device_error, VadPolicy};
 use crate::managers::audio::AudioRecordingManager;
 use crate::managers::history::HistoryManager;
@@ -399,6 +399,30 @@ pub(crate) struct ProcessedTranscription {
     pub post_process_prompt: Option<String>,
 }
 
+/// Apply the deterministic dictionary layer to the final output and to the
+/// value persisted for history consumers. A replacement-only result must be
+/// represented as `post_processed_text`, otherwise History and tray copy fall
+/// back to the raw transcription even though paste used the corrected text.
+pub(crate) fn apply_final_output_replacements(
+    transcription: &str,
+    final_text: String,
+    mut post_processed_text: Option<String>,
+    replacements: &[DictionaryReplacement],
+) -> (String, Option<String>) {
+    if replacements.is_empty() {
+        return (final_text, post_processed_text);
+    }
+
+    let final_text = apply_dictionary_replacements(&final_text, replacements);
+    if let Some(processed) = post_processed_text.as_mut() {
+        *processed = apply_dictionary_replacements(processed, replacements);
+    } else if final_text != transcription {
+        post_processed_text = Some(final_text.clone());
+    }
+
+    (final_text, post_processed_text)
+}
+
 /// Resolve the persisted language *intent* into the language the currently-loaded
 /// model will actually use — the same capability-aware coercion the transcription
 /// paths apply (see [`crate::managers::model::effective_language`]). Post-processing
@@ -464,17 +488,12 @@ pub(crate) async fn process_transcription_output(
     // receives is always the corrected text. The stored post-processed text is
     // corrected identically so History and paste stay consistent; the raw
     // transcription is preserved separately by the history manager.
-    if !settings.dictionary_replacements.is_empty() {
-        if let Some(processed) = post_processed_text.as_mut() {
-            *processed =
-                apply_dictionary_replacements(processed, &settings.dictionary_replacements);
-        }
-    }
-    let final_text = if settings.dictionary_replacements.is_empty() {
-        final_text
-    } else {
-        apply_dictionary_replacements(&final_text, &settings.dictionary_replacements)
-    };
+    let (final_text, post_processed_text) = apply_final_output_replacements(
+        transcription,
+        final_text,
+        post_processed_text,
+        &settings.dictionary_replacements,
+    );
 
     ProcessedTranscription {
         final_text,
@@ -940,6 +959,45 @@ impl ShortcutAction for TestAction {
             shortcut_str,
             app.package_info().name
         );
+    }
+}
+
+#[cfg(test)]
+mod final_output_tests {
+    use super::apply_final_output_replacements;
+    use crate::audio_toolkit::dictionary::DictionaryReplacement;
+
+    fn rule(from: &str, to: &str) -> DictionaryReplacement {
+        DictionaryReplacement {
+            from: from.to_string(),
+            to: to.to_string(),
+        }
+    }
+
+    #[test]
+    fn replacement_only_output_is_stored_for_history_and_tray() {
+        let (final_text, post_processed_text) = apply_final_output_replacements(
+            "I use open router",
+            "I use open router".to_string(),
+            None,
+            &[rule("open router", "OpenRouter")],
+        );
+
+        assert_eq!(final_text, "I use OpenRouter");
+        assert_eq!(post_processed_text.as_deref(), Some("I use OpenRouter"));
+    }
+
+    #[test]
+    fn no_replacements_preserve_existing_output_metadata() {
+        let (final_text, post_processed_text) = apply_final_output_replacements(
+            "raw",
+            "processed".to_string(),
+            Some("processed".to_string()),
+            &[],
+        );
+
+        assert_eq!(final_text, "processed");
+        assert_eq!(post_processed_text.as_deref(), Some("processed"));
     }
 }
 
