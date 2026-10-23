@@ -19,6 +19,10 @@ import {
   supportsLanguageCode,
 } from "@/lib/constants/languages.ts";
 import type { ModelInfo } from "@/bindings";
+import {
+  DEFAULT_VISIBLE_AVAILABLE_MODELS,
+  getVisibleAvailableModels,
+} from "@/lib/utils/modelList";
 
 // check if model supports a language based on its supported_languages list
 const modelSupportsLanguage = (model: ModelInfo, langCode: string): boolean => {
@@ -35,6 +39,7 @@ export const ModelsSettings: React.FC = () => {
   const { t } = useTranslation();
   const [switchingModelId, setSwitchingModelId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showAllModels, setShowAllModels] = useState(false);
   const [filterStreaming, setFilterStreaming] = useState(false);
   const [filterTranslation, setFilterTranslation] = useState(false);
   const [languageFilter, setLanguageFilter] = useState("all");
@@ -222,6 +227,21 @@ export const ModelsSettings: React.FC = () => {
       availableModels: available,
     };
   }, [filteredModels, downloadingModels, currentModel]);
+
+  const hasActiveModelFilters =
+    searchQuery.trim().length > 0 ||
+    languageFilter !== "all" ||
+    filterStreaming ||
+    filterTranslation;
+  const { visible: visibleAvailableModels } = useMemo(
+    () =>
+      getVisibleAvailableModels(
+        availableModels,
+        showAllModels,
+        hasActiveModelFilters,
+      ),
+    [availableModels, showAllModels, hasActiveModelFilters],
+  );
 
   if (loading) {
     return (
@@ -423,10 +443,32 @@ export const ModelsSettings: React.FC = () => {
         {/* Available Models Section */}
         {availableModels.length > 0 && (
           <div className="space-y-3">
-            <h2 className="text-sm font-medium text-text/60">
-              {t("settings.models.availableModels")}
-            </h2>
-            {availableModels.map((model: ModelInfo) => (
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-sm font-medium text-text/60">
+                {t("settings.models.availableModels")}
+              </h2>
+              {!hasActiveModelFilters &&
+                availableModels.length > DEFAULT_VISIBLE_AVAILABLE_MODELS && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllModels((show) => !show)}
+                    aria-expanded={showAllModels}
+                    className="flex items-center gap-1.5 text-sm font-medium text-text/60 hover:text-text transition-colors"
+                  >
+                    {showAllModels
+                      ? t("onboarding.showFewerModels")
+                      : t("onboarding.showAllModels", {
+                          total: availableModels.length,
+                        })}
+                    <ChevronDown
+                      className={`w-4 h-4 transition-transform duration-200 ${
+                        showAllModels ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+                )}
+            </div>
+            {visibleAvailableModels.map((model: ModelInfo) => (
               <ModelCard
                 key={model.id}
                 model={model}
