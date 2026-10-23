@@ -239,7 +239,7 @@ export const DictionarySync: React.FC<{ onSynced: () => Promise<void> }> = ({
                   if (connected) {
                     setDevice(null);
                     await refresh();
-                    setMessage("connected");
+                    setMessage("connectedMessage");
                   } else {
                     setMessage("authorizationPending");
                   }

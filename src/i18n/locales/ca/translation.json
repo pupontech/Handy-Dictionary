@@ -614,6 +614,7 @@
         "deviceCode": "GitHub device code",
         "openAuthorization": "Open GitHub authorization",
         "checkAuthorization": "Check authorization",
+        "connectedMessage": "Connected. Select your private repository below.",
         "authorizationPending": "Authorization is pending. Complete the browser step and wait before checking again.",
         "connected": "A token is stored locally. Sync checks whether GitHub still accepts it.",
         "owner": "Repository owner",
