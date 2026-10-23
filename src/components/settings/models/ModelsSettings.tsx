@@ -21,8 +21,10 @@ import {
 import type { ModelInfo } from "@/bindings";
 import {
   DEFAULT_VISIBLE_AVAILABLE_MODELS,
+  filterPreferredDecoderModels,
   getVisibleAvailableModels,
 } from "@/lib/utils/modelList";
+import { getTranslatedModelName } from "@/lib/utils/modelTranslation";
 
 // check if model supports a language based on its supported_languages list
 const modelSupportsLanguage = (model: ModelInfo, langCode: string): boolean => {
@@ -180,7 +182,11 @@ export const ModelsSettings: React.FC = () => {
   // Filter models by search query (name + description), language filter, and toggles
   const filteredModels = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return models.filter((model: ModelInfo) => {
+    const pickerModels = filterPreferredDecoderModels(models, [
+      currentModel,
+      ...Object.keys(downloadingModels),
+    ]);
+    return pickerModels.filter((model: ModelInfo) => {
       // Hide deprecated legacy (.bin) downloads unless already on disk.
       if (isLegacyModel(model) && !model.is_downloaded) return false;
       if (languageFilter !== "all") {
@@ -190,12 +196,22 @@ export const ModelsSettings: React.FC = () => {
       if (filterTranslation && !model.supports_translation) return false;
 
       if (q) {
-        const haystack = `${model.name} ${model.description}`.toLowerCase();
+        const haystack =
+          `${getTranslatedModelName(model, t)} ${model.description}`.toLowerCase();
         if (!haystack.includes(q)) return false;
       }
       return true;
     });
-  }, [models, languageFilter, filterStreaming, filterTranslation, searchQuery]);
+  }, [
+    models,
+    currentModel,
+    downloadingModels,
+    languageFilter,
+    filterStreaming,
+    filterTranslation,
+    searchQuery,
+    t,
+  ]);
 
   // Split filtered models into downloaded (including custom) and available sections
   const { downloadedModels, availableModels } = useMemo(() => {

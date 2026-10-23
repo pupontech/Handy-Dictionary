@@ -1,5 +1,6 @@
 import type { TFunction } from "i18next";
 import type { ModelInfo } from "@/bindings";
+import { getModelDisplayName } from "./modelList";
 
 /**
  * Get the translated name for a model
@@ -8,9 +9,12 @@ import type { ModelInfo } from "@/bindings";
  * @returns The translated model name, or the original name if no translation exists
  */
 export function getTranslatedModelName(model: ModelInfo, t: TFunction): string {
+  const displayName = getModelDisplayName(model);
+  if (displayName !== model.name) return displayName;
+
   const translationKey = `onboarding.models.${model.id}.name`;
   const translated = t(translationKey, { defaultValue: "" });
-  return translated !== "" ? translated : model.name;
+  return translated !== "" ? translated : displayName;
 }
 
 /**

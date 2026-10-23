@@ -8,6 +8,7 @@ import ModelCard, { isLegacySource } from "./ModelCard";
 import HandyTextLogo from "../icons/HandyTextLogo";
 import { Button } from "../ui/Button";
 import { useModelStore } from "../../stores/modelStore";
+import { filterPreferredDecoderModels } from "@/lib/utils/modelList";
 
 interface OnboardingProps {
   onModelSelected: () => void;
@@ -24,6 +25,7 @@ const Onboarding: React.FC<OnboardingProps> = ({
   const { t } = useTranslation();
   const {
     models,
+    currentModel,
     downloadModel,
     selectModel,
     downloadingModels,
@@ -38,29 +40,40 @@ const Onboarding: React.FC<OnboardingProps> = ({
 
   const isBusy = selectedModelId !== null;
 
-  // Curate the download list: legacy (.bin) downloads are deprecated and
-  // never shown here (they still appear in the compatible section if already on
-  // disk). The catalog arrives rank-sorted, so the first two recommended models
-  // are the featured picks — currently Parakeet Unified (English) and Nemotron
-  // Streaming (multilingual). Everything else hides behind "Show all".
-  const { downloadable, topPicks, otherRecommended, rest } = useMemo(() => {
-    const downloadable = models.filter(
-      (m: ModelInfo) => !m.is_downloaded && !isLegacySource(m),
-    );
-    const recommended = downloadable.filter((m: ModelInfo) => m.is_recommended);
-    // `models` arrives in editorial rank order (the backend sorts by rank_of,
-    // then accuracy), so keep that order here: ranked-but-not-recommended models
-    // surface first, then the unranked tail by accuracy.
-    const rest = downloadable.filter((m: ModelInfo) => !m.is_recommended);
-    return {
-      downloadable,
-      topPicks: recommended.slice(0, 2),
-      otherRecommended: recommended.slice(2),
-      rest,
-    };
-  }, [models]);
-
-  const existingModels = models.filter((m: ModelInfo) => m.is_downloaded);
+  // Keep CTC-only Parakeet choices out of onboarding, except models already
+  // selected or downloading so current work can finish and be switched away from.
+  const { downloadable, existingModels, topPicks, otherRecommended, rest } =
+    useMemo(() => {
+      const preservedModelIds = [
+        currentModel,
+        selectedModelId,
+        ...Object.keys(downloadingModels),
+      ].filter((id): id is string => Boolean(id));
+      const selectableModels = filterPreferredDecoderModels(
+        models,
+        preservedModelIds,
+      );
+      const downloadable = selectableModels.filter(
+        (m: ModelInfo) => !m.is_downloaded && !isLegacySource(m),
+      );
+      const existingModels = selectableModels.filter(
+        (m: ModelInfo) => m.is_downloaded,
+      );
+      const recommended = downloadable.filter(
+        (m: ModelInfo) => m.is_recommended,
+      );
+      // `models` arrives in editorial rank order (the backend sorts by rank_of,
+      // then accuracy), so keep that order here: ranked-but-not-recommended models
+      // surface first, then the unranked tail by accuracy.
+      const rest = downloadable.filter((m: ModelInfo) => !m.is_recommended);
+      return {
+        downloadable,
+        existingModels,
+        topPicks: recommended.slice(0, 2),
+        otherRecommended: recommended.slice(2),
+        rest,
+      };
+    }, [models, currentModel, selectedModelId, downloadingModels]);
 
   const hasRecommended = topPicks.length > 0 || otherRecommended.length > 0;
   // When nothing recommended remains to download (e.g. all already on disk),
