@@ -12,19 +12,26 @@ import {
 import type { ModelCardStatus } from "@/components/onboarding";
 import { ModelCard } from "@/components/onboarding";
 import { useModelStore } from "@/stores/modelStore";
+import RetiredModelsNotice from "./RetiredModelsNotice";
 import {
   getLanguageLabel,
   MODEL_CAPABILITY_LANGUAGES,
   supportsLanguageCode,
 } from "@/lib/constants/languages.ts";
 import type { ModelInfo } from "@/bindings";
+import {
+  DEFAULT_VISIBLE_AVAILABLE_MODELS,
+  filterPreferredDecoderModels,
+  getVisibleAvailableModels,
+} from "@/lib/utils/modelList";
+import { getTranslatedModelName } from "@/lib/utils/modelTranslation";
 
 // check if model supports a language based on its supported_languages list
 const modelSupportsLanguage = (model: ModelInfo, langCode: string): boolean => {
   return supportsLanguageCode(model.supported_languages, langCode);
 };
 
-// Legacy models are the blob (Url-sourced) .bin/ONNX downloads, superseded by
+// Legacy models are the blob (Url-sourced) .bin downloads, superseded by
 // the catalog GGUFs. They stay runnable when already on disk, but we no longer
 // advertise the download.
 const isLegacyModel = (model: ModelInfo): boolean =>
@@ -34,6 +41,7 @@ export const ModelsSettings: React.FC = () => {
   const { t } = useTranslation();
   const [switchingModelId, setSwitchingModelId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showAllModels, setShowAllModels] = useState(false);
   const [filterStreaming, setFilterStreaming] = useState(false);
   const [filterTranslation, setFilterTranslation] = useState(false);
   const [languageFilter, setLanguageFilter] = useState("all");
@@ -48,7 +56,6 @@ export const ModelsSettings: React.FC = () => {
     downloadProgress,
     downloadStats,
     verifyingModels,
-    extractingModels,
     loading,
     isRescanning,
     downloadModel,
@@ -96,9 +103,6 @@ export const ModelsSettings: React.FC = () => {
   }, [languageFilter, t]);
 
   const getModelStatus = (modelId: string): ModelCardStatus => {
-    if (modelId in extractingModels) {
-      return "extracting";
-    }
     if (modelId in verifyingModels) {
       return "verifying";
     }
@@ -178,8 +182,12 @@ export const ModelsSettings: React.FC = () => {
   // Filter models by search query (name + description), language filter, and toggles
   const filteredModels = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return models.filter((model: ModelInfo) => {
-      // Hide deprecated legacy (.bin/ONNX) downloads unless already on disk.
+    const pickerModels = filterPreferredDecoderModels(models, [
+      currentModel,
+      ...Object.keys(downloadingModels),
+    ]);
+    return pickerModels.filter((model: ModelInfo) => {
+      // Hide deprecated legacy (.bin) downloads unless already on disk.
       if (isLegacyModel(model) && !model.is_downloaded) return false;
       if (languageFilter !== "all") {
         if (!modelSupportsLanguage(model, languageFilter)) return false;
@@ -188,12 +196,22 @@ export const ModelsSettings: React.FC = () => {
       if (filterTranslation && !model.supports_translation) return false;
 
       if (q) {
-        const haystack = `${model.name} ${model.description}`.toLowerCase();
+        const haystack =
+          `${getTranslatedModelName(model, t)} ${model.description}`.toLowerCase();
         if (!haystack.includes(q)) return false;
       }
       return true;
     });
-  }, [models, languageFilter, filterStreaming, filterTranslation, searchQuery]);
+  }, [
+    models,
+    currentModel,
+    downloadingModels,
+    languageFilter,
+    filterStreaming,
+    filterTranslation,
+    searchQuery,
+    t,
+  ]);
 
   // Split filtered models into downloaded (including custom) and available sections
   const { downloadedModels, availableModels } = useMemo(() => {
@@ -204,8 +222,7 @@ export const ModelsSettings: React.FC = () => {
       if (
         model.is_custom ||
         model.is_downloaded ||
-        model.id in downloadingModels ||
-        model.id in extractingModels
+        model.id in downloadingModels
       ) {
         downloaded.push(model);
       } else {
@@ -225,7 +242,22 @@ export const ModelsSettings: React.FC = () => {
       downloadedModels: downloaded,
       availableModels: available,
     };
-  }, [filteredModels, downloadingModels, extractingModels, currentModel]);
+  }, [filteredModels, downloadingModels, currentModel]);
+
+  const hasActiveModelFilters =
+    searchQuery.trim().length > 0 ||
+    languageFilter !== "all" ||
+    filterStreaming ||
+    filterTranslation;
+  const { visible: visibleAvailableModels } = useMemo(
+    () =>
+      getVisibleAvailableModels(
+        availableModels,
+        showAllModels,
+        hasActiveModelFilters,
+      ),
+    [availableModels, showAllModels, hasActiveModelFilters],
+  );
 
   if (loading) {
     return (
@@ -247,6 +279,8 @@ export const ModelsSettings: React.FC = () => {
           {t("settings.models.description")}
         </p>
       </div>
+
+      <RetiredModelsNotice />
 
       {/* Search bar — filter the catalog by name or description */}
       <div className="relative">
@@ -425,10 +459,32 @@ export const ModelsSettings: React.FC = () => {
         {/* Available Models Section */}
         {availableModels.length > 0 && (
           <div className="space-y-3">
-            <h2 className="text-sm font-medium text-text/60">
-              {t("settings.models.availableModels")}
-            </h2>
-            {availableModels.map((model: ModelInfo) => (
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-sm font-medium text-text/60">
+                {t("settings.models.availableModels")}
+              </h2>
+              {!hasActiveModelFilters &&
+                availableModels.length > DEFAULT_VISIBLE_AVAILABLE_MODELS && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllModels((show) => !show)}
+                    aria-expanded={showAllModels}
+                    className="flex items-center gap-1.5 text-sm font-medium text-text/60 hover:text-text transition-colors"
+                  >
+                    {showAllModels
+                      ? t("onboarding.showFewerModels")
+                      : t("onboarding.showAllModels", {
+                          total: availableModels.length,
+                        })}
+                    <ChevronDown
+                      className={`w-4 h-4 transition-transform duration-200 ${
+                        showAllModels ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+                )}
+            </div>
+            {visibleAvailableModels.map((model: ModelInfo) => (
               <ModelCard
                 key={model.id}
                 model={model}
