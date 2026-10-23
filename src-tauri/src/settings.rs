@@ -1072,6 +1072,9 @@ pub fn load_or_create_app_settings(app: &AppHandle) -> AppSettings {
 }
 
 pub fn get_settings(app: &AppHandle) -> AppSettings {
+    let _guard = SETTINGS_WRITE_LOCK
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     let store = app
         .store(crate::portable::store_path(SETTINGS_STORE_PATH))
         .expect("Failed to initialize store");
@@ -1282,12 +1285,71 @@ pub fn update_checks_effectively_enabled(settings: &AppSettings) -> bool {
     settings.update_checks_enabled && !update_checks_forced_disabled()
 }
 
+static SETTINGS_WRITE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 pub fn write_settings(app: &AppHandle, settings: AppSettings) {
+    let _guard = SETTINGS_WRITE_LOCK
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     let store = app
         .store(crate::portable::store_path(SETTINGS_STORE_PATH))
         .expect("Failed to initialize store");
+    let mut incoming = serde_json::to_value(&settings).unwrap();
+    if let Some(current) = store.get("settings") {
+        handy_dictionary_sync::preserve_dictionary_fields(&current, &mut incoming);
+    }
+    store.set("settings", incoming);
+}
 
-    store.set("settings", serde_json::to_value(&settings).unwrap());
+/// Patch only the dictionary, preserving every other setting. Sync supplies an
+/// expected snapshot so an edit made during a network request cannot be lost.
+pub fn update_dictionary(
+    app: &AppHandle,
+    expected: Option<&handy_dictionary_sync::Dictionary>,
+    words: Option<Vec<String>>,
+    replacements: Option<Vec<DictionaryReplacement>>,
+) -> Result<(), String> {
+    // Initialize/migrate before taking the write lock (get_settings uses it too).
+    let _ = get_settings(app);
+    let _guard = SETTINGS_WRITE_LOCK
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    let store = app
+        .store(crate::portable::store_path(SETTINGS_STORE_PATH))
+        .map_err(|_| "local_storage")?;
+    let previous = store.get("settings").ok_or("local_storage")?;
+    let current: AppSettings =
+        serde_json::from_value(previous.clone()).map_err(|_| "local_storage")?;
+    if let Some(expected) = expected {
+        let actual = handy_dictionary_sync::Dictionary {
+            words: current.custom_words,
+            replacements: current
+                .dictionary_replacements
+                .into_iter()
+                .map(|r| handy_dictionary_sync::Rule {
+                    from: r.from,
+                    to: r.to,
+                })
+                .collect(),
+        };
+        if actual != *expected {
+            return Err("local_changed".into());
+        }
+    }
+    let mut incoming = previous.clone();
+    if let Some(words) = words {
+        incoming["custom_words"] = serde_json::to_value(words).map_err(|_| "local_storage")?;
+    }
+    if let Some(replacements) = replacements {
+        incoming["dictionary_replacements"] =
+            serde_json::to_value(replacements).map_err(|_| "local_storage")?;
+    }
+    store.set("settings", incoming);
+    if store.save().is_err() {
+        store.set("settings", previous);
+        return Err("local_storage".into());
+    }
+    Ok(())
 }
 
 pub fn get_bindings(app: &AppHandle) -> HashMap<String, ShortcutBinding> {

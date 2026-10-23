@@ -15,8 +15,11 @@ close to upstream as possible, that adds a first-class **Dictionary**:
 - Improved custom-word management with search and counts
 - Import / export (JSON full dictionary, TXT custom words, CSV replacements)
 - Deterministic **replacement rules** applied to the final transcript
+- Optional **in-app GitHub dictionary sync** using your own private repository
+  (no Git installation or local checkout)
 
-Everything else is upstream Handy, unchanged.
+Speech transcription remains local. Dictionary sync is opt-in and manual; it
+uploads dictionary entries only when you explicitly synchronize.
 
 **Upstream:** [github.com/cjpais/Handy](https://github.com/cjpais/Handy)
 
@@ -36,8 +39,28 @@ transcript deterministically:
 
 Matching is case-insensitive, respects word boundaries (`cat` → `CAT` never
 touches `concatenate`), prefers the longest matching rule, preserves surrounding
-punctuation, and never cascades. Dictionary data stays local; import/export only
-happens when you ask for it.
+punctuation, and never cascades. Dictionary data stays local unless you explicitly
+export it or opt into GitHub sync.
+
+### GitHub dictionary sync
+
+Open **Dictionary → GitHub sync** to authorize GitHub and select your own dedicated
+private repository. Handy reads/writes the JSON directly through GitHub's API;
+there is no cloned repository and no maintainer-hosted sync service. This version
+uses **Sync now**, not automatic background synchronization.
+
+**We do not receive your password or token.** Staying connected does require a
+token stored locally in Windows Credential Manager, macOS Keychain, or Linux
+Secret Service. It is not put in dictionary exports or ordinary sync/settings
+files, and there is no plaintext fallback. Dictionary data itself is readable JSON
+in your repository, not end-to-end encrypted. Use a dedicated private repository;
+the app's Contents permission covers that whole repository.
+
+Read the [full setup, privacy, conflicts, and recovery guide](docs/GITHUB-SYNC.md),
+also available inside the app. [Maintainer setup](docs/GITHUB-SYNC-MAINTAINERS.md)
+covers registering the shared public GitHub App, supplying its public build
+configuration, and release acceptance. Registration and real-account/two-device
+acceptance are prerequisites for advertising a ready public sync release.
 
 ### Fork releases, updates and signing
 

@@ -881,10 +881,7 @@ pub fn change_whats_new_last_seen_version_setting(
 #[tauri::command]
 #[specta::specta]
 pub fn update_custom_words(app: AppHandle, words: Vec<String>) -> Result<(), String> {
-    let mut settings = settings::get_settings(&app);
-    settings.custom_words = words;
-    settings::write_settings(&app, settings);
-    Ok(())
+    settings::update_dictionary(&app, None, Some(words), None)
 }
 
 #[tauri::command]
@@ -893,10 +890,12 @@ pub fn update_dictionary_replacements(
     app: AppHandle,
     replacements: Vec<DictionaryReplacement>,
 ) -> Result<(), String> {
-    let mut settings = settings::get_settings(&app);
-    settings.dictionary_replacements = normalize_dictionary_replacements(replacements);
-    settings::write_settings(&app, settings);
-    Ok(())
+    settings::update_dictionary(
+        &app,
+        None,
+        None,
+        Some(normalize_dictionary_replacements(replacements)),
+    )
 }
 
 #[tauri::command]
