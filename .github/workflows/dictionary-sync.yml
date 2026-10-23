@@ -1,0 +1,58 @@
+name: Dictionary sync verification
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src-tauri/dictionary-sync/**"
+      - "src-tauri/src/dictionary_sync.rs"
+      - "src-tauri/src/settings.rs"
+      - ".github/workflows/dictionary-sync.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src-tauri/dictionary-sync/**"
+      - "src-tauri/src/dictionary_sync.rs"
+      - "src-tauri/src/settings.rs"
+      - ".github/workflows/dictionary-sync.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dictionary-sync-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sync-core:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Linux credential-store build dependency
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "src-tauri/dictionary-sync -> target"
+      - name: Formatting
+        run: cargo fmt --manifest-path src-tauri/dictionary-sync/Cargo.toml -- --check
+      - name: Unit and real HTTP fixture tests
+        run: cargo test --manifest-path src-tauri/dictionary-sync/Cargo.toml --locked
+      - name: Clippy
+        run: cargo clippy --manifest-path src-tauri/dictionary-sync/Cargo.toml --locked --all-targets -- -D warnings
+      - name: Real Windows Credential Manager roundtrip and deletion
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $output = & cargo test --manifest-path src-tauri/dictionary-sync/Cargo.toml --locked credentials::tests::native_credential_store_roundtrip -- --ignored --exact 2>&1
+          $code = $LASTEXITCODE
+          $output | Write-Output
+          if ($code -ne 0) { throw "Native credential-store test failed: $code" }
+          if (($output -join "`n") -notmatch '1 passed; 0 failed') { throw 'Native test did not execute exactly the required passing test' }

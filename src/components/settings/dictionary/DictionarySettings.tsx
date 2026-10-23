@@ -4,6 +4,8 @@ import { Input } from "../../ui/Input";
 import { DictionaryCustomWords } from "./DictionaryCustomWords";
 import { DictionaryImportExport } from "./DictionaryImportExport";
 import { DictionaryReplacements } from "./DictionaryReplacements";
+import { DictionarySync } from "./DictionarySync";
+import { useSettings } from "../../../hooks/useSettings";
 
 /**
  * Dictionary settings page (fork feature).
@@ -20,6 +22,7 @@ import { DictionaryReplacements } from "./DictionaryReplacements";
 export const DictionarySettings: React.FC = () => {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
+  const { refreshSettings } = useSettings();
 
   return (
     <div className="max-w-3xl w-full mx-auto space-y-6">
@@ -36,6 +39,7 @@ export const DictionarySettings: React.FC = () => {
       </div>
       <DictionaryCustomWords filter={search} />
       <DictionaryReplacements filter={search} />
+      <DictionarySync onSynced={refreshSettings} />
     </div>
   );
 };

@@ -526,6 +526,9 @@ jobs:
       - name: Build with Tauri
         uses: tauri-apps/tauri-action@v0
         env:
+          # Public GitHub App identity only; never user tokens or app secrets.
+          HANDY_GITHUB_CLIENT_ID: ${{ vars.HANDY_GITHUB_CLIENT_ID }}
+          HANDY_GITHUB_APP_SLUG: ${{ vars.HANDY_GITHUB_APP_SLUG }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Fork: platform code signing (Apple/Azure) is disabled because this
           # fork has no such credentials. The signing variables must be ABSENT

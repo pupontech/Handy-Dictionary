@@ -8,6 +8,7 @@ mod catalog;
 pub mod cli;
 mod clipboard;
 mod commands;
+mod dictionary_sync;
 mod helpers;
 mod input;
 mod llm_client;
@@ -688,6 +689,12 @@ pub fn run(cli_args: CliArgs) {
             shortcut::set_post_process_selected_prompt,
             shortcut::update_custom_words,
             shortcut::update_dictionary_replacements,
+            dictionary_sync::dictionary_sync_status,
+            dictionary_sync::dictionary_sync_begin,
+            dictionary_sync::dictionary_sync_poll,
+            dictionary_sync::dictionary_sync_select_repository,
+            dictionary_sync::dictionary_sync_now,
+            dictionary_sync::dictionary_sync_disconnect,
             shortcut::suspend_all_bindings,
             shortcut::resume_all_bindings,
             shortcut::change_mute_while_recording_setting,
@@ -886,6 +893,7 @@ pub fn run(cli_args: CliArgs) {
             MacosLauncher::LaunchAgent,
             Some(vec![]),
         ))
+        .manage(dictionary_sync::SyncService::default())
         .manage(cli_args.clone())
         .setup(move |app| {
             #[cfg(target_os = "windows")]
